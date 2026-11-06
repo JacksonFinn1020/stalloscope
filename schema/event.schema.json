@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/grok-bot-progress/schema/event.schema.json",
+  "title": "GrokBotProgressEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "bot_id",
+    "title",
+    "state",
+    "progress",
+    "detail",
+    "updated_at"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable id for one long-running task (upsert key)."
+    },
+    "bot_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Reporter bot or wrapper id."
+    },
+    "title": {
+      "type": "string",
+      "description": "Short human-readable task title."
+    },
+    "state": {
+      "type": "string",
+      "enum": ["running", "blocked", "done", "failed", "idle"],
+      "description": "Lifecycle state of the task."
+    },
+    "progress": {
+      "oneOf": [
+        { "type": "number", "minimum": 0, "maximum": 100 },
+        { "type": "null" }
+      ],
+      "description": "Percent complete 0-100, or null when unknown / not applicable."
+    },
+    "detail": {
+      "type": ["string", "null"],
+      "description": "Free-form status line (e.g. download layer, blocker reason)."
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "ISO-8601 timestamp, preferably with Asia/Shanghai offset (+08:00)."
+    }
+  }
+}

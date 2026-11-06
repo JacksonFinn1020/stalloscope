@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>长任务进度 · gbp</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3d8bfd;
+      --ok: #3dd68c;
+      --warn: #f5a524;
+      --danger: #f31260;
+      --border: #2a3548;
+      --chip: #243044;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Noto Sans SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    h1 { margin: 0; font-size: 1.2rem; font-weight: 650; }
+    .meta { color: var(--muted); font-size: 0.85rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted); display: inline-block;
+    }
+    .dot.ok { background: var(--ok); }
+    .dot.bad { background: var(--danger); }
+    main { padding: 1.1rem 1.5rem 2rem; max-width: 960px; margin: 0 auto; }
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .chip {
+      border: 1px solid var(--border);
+      background: var(--chip);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .chip.active { border-color: var(--accent); color: var(--text); }
+    .chip .n { color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; margin-left: 0.25rem; }
+    .chip.danger.active { border-color: var(--danger); }
+    .empty {
+      color: var(--muted);
+      padding: 2rem 1rem;
+      text-align: center;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.85rem;
+    }
+    .card.blocked {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 1px rgba(243, 18, 96, 0.25);
+      border-left-width: 4px;
+      background: linear-gradient(90deg, rgba(243, 18, 96, 0.12), var(--card) 28%);
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .title { font-weight: 600; font-size: 1.05rem; }
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: var(--chip);
+      color: var(--muted);
+    }
+    .badge.running { background: rgba(61, 139, 253, 0.2); color: var(--accent); }
+    .badge.blocked { background: rgba(243, 18, 96, 0.2); color: var(--danger); }
+    .badge.done { background: rgba(61, 214, 140, 0.2); color: var(--ok); }
+    .badge.failed { background: rgba(243, 18, 96, 0.25); color: #ff7a9a; }
+    .badge.idle { background: var(--chip); color: var(--muted); }
+    .bar {
+      margin-top: 0.75rem;
+      height: 10px;
+      background: #243044;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #6eb6ff);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .card.blocked .bar > span { background: linear-gradient(90deg, var(--danger), #ff7a9a); }
+    .card.done .bar > span { background: linear-gradient(90deg, var(--ok), #7dffc0); }
+    .card.failed .bar > span { background: linear-gradient(90deg, var(--danger), #ff7a9a); }
+    .detail {
+      margin-top: 0.65rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      word-break: break-word;
+    }
+    .card.blocked .detail { color: #ffb3c5; }
+    .foot {
+      margin-top: 0.55rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .pct { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
+    code { font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>长任务进度</h1>
+    <div class="meta">
+      <span><span id="health" class="dot"></span> <span id="healthText">连接中</span></span>
+      <span>约 2s 刷新</span>
+      <span id="clock">—</span>
+    </div>
+  </header>
+  <main>
+    <div id="summary" class="summary" hidden></div>
+    <div id="list" class="empty">暂无任务。用 <code>gbp emit</code> 或 <code>gbp wrap</code> 上报。</div>
+  </main>
+  <script>
+    const STATE_LABEL = {
+      running: "运行中",
+      blocked: "阻塞",
+      done: "完成",
+      failed: "失败",
+      idle: "空闲",
+    };
+    const STATE_ORDER = { blocked: 0, running: 1, failed: 2, idle: 3, done: 4 };
+
+    const listEl = document.getElementById("list");
+    const summaryEl = document.getElementById("summary");
+    const clockEl = document.getElementById("clock");
+    const healthEl = document.getElementById("health");
+    const healthTextEl = document.getElementById("healthText");
+
+    let filter = "all";
+    let lastTasks = [];
+
+    function esc(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function pctLabel(p) {
+      if (p === null || p === undefined || Number.isNaN(Number(p))) return "—";
+      const n = Number(p);
+      return n.toFixed(n % 1 ? 1 : 0) + "%";
+    }
+
+    function formatTime(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return String(iso);
+      return d.toLocaleString("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }) + " Asia/Shanghai";
+    }
+
+    function countBy(tasks) {
+      const c = { all: tasks.length, running: 0, blocked: 0, done: 0, failed: 0, idle: 0 };
+      for (const t of tasks) {
+        if (c[t.state] !== undefined) c[t.state] += 1;
+      }
+      return c;
+    }
+
+    function renderSummary(tasks) {
+      const c = countBy(tasks);
+      if (!tasks.length) {
+        summaryEl.hidden = true;
+        summaryEl.innerHTML = "";
+        return;
+      }
+      summaryEl.hidden = false;
+      const chips = [
+        ["all", "全部", false],
+        ["running", "运行中", false],
+        ["blocked", "阻塞", true],
+        ["done", "完成", false],
+        ["failed", "失败", true],
+        ["idle", "空闲", false],
+      ];
+      summaryEl.innerHTML = chips.map(([key, label, danger]) => {
+        const active = filter === key ? " active" : "";
+        const d = danger ? " danger" : "";
+        return `<button type="button" class="chip${active}${d}" data-filter="${key}">${label}<span class="n">${c[key]}</span></button>`;
+      }).join("");
+      summaryEl.querySelectorAll("[data-filter]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          filter = btn.getAttribute("data-filter");
+          render(lastTasks);
+        });
+      });
+    }
+
+    function render(tasks) {
+      lastTasks = tasks || [];
+      clockEl.textContent = new Date().toLocaleString("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        hour12: false,
+      });
+      renderSummary(lastTasks);
+
+      if (!lastTasks.length) {
+        listEl.className = "empty";
+        listEl.innerHTML = "暂无任务。用 <code>gbp emit</code> 或 <code>gbp wrap</code> 上报。";
+        return;
+      }
+
+      const filtered = filter === "all"
+        ? lastTasks
+        : lastTasks.filter((t) => t.state === filter);
+
+      const sorted = [...filtered].sort((a, b) => {
+        const oa = STATE_ORDER[a.state] ?? 9;
+        const ob = STATE_ORDER[b.state] ?? 9;
+        if (oa !== ob) return oa - ob;
+        return String(b.updated_at || "").localeCompare(String(a.updated_at || ""));
+      });
+
+      if (!sorted.length) {
+        listEl.className = "empty";
+        listEl.textContent = "该筛选下没有任务。";
+        return;
+      }
+
+      listEl.className = "";
+      listEl.innerHTML = sorted.map((t) => {
+        const state = t.state || "";
+        const blocked = state === "blocked";
+        const p = t.progress;
+        const width = (p === null || p === undefined) ? 0 : Math.max(0, Math.min(100, Number(p)));
+        const label = STATE_LABEL[state] || state || "?";
+        return `
+          <article class="card ${esc(state)}${blocked ? " blocked" : ""}">
+            <div class="row">
+              <div class="title">${esc(t.title || t.task_id)}</div>
+              <div class="row" style="gap:0.5rem">
+                <span class="pct" style="font-size:1.05rem">${esc(pctLabel(p))}</span>
+                <span class="badge ${esc(state)}">${esc(label)}</span>
+              </div>
+            </div>
+            <div class="bar" title="progress ${esc(pctLabel(p))}"><span style="width:${width}%"></span></div>
+            <div class="detail">${esc(t.detail ?? (blocked ? "无阻塞说明" : ""))}</div>
+            <div class="foot">
+              <span>更新 <time datetime="${esc(t.updated_at || "")}">${esc(formatTime(t.updated_at))}</time></span>
+              <span>bot <code>${esc(t.bot_id || "")}</code></span>
+              <span>id <code>${esc(t.task_id || "")}</code></span>
+            </div>
+          </article>`;
+      }).join("");
+    }
+
+    function setHealth(ok, text) {
+      healthEl.className = "dot " + (ok ? "ok" : "bad");
+      healthTextEl.textContent = text;
+    }
+
+    async function tick() {
+      try {
+        const res = await fetch("/v1/tasks", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const tasks = Array.isArray(data.tasks)
+          ? data.tasks
+          : Object.values(data.tasks || {});
+        setHealth(true, "已连接");
+        render(tasks);
+      } catch (e) {
+        setHealth(false, "拉取失败");
+        clockEl.textContent = "—";
+        console.warn(e);
+      }
+    }
+
+    tick();
+    setInterval(tick, 2000);
+  </script>
+</body>
+</html>

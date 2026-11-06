@@ -1,0 +1,46 @@
+{
+  "cut": "2026-11-06",
+  "panel_url": "http://127.0.0.1:7310/",
+  "serve": "./gbp serve",
+  "fixtures": [
+    {
+      "id": "fx-running",
+      "emit": {
+        "task_id": "ac-running",
+        "bot_id": "qa",
+        "title": "docker pull demo",
+        "state": "running",
+        "progress": 42,
+        "detail": "Downloading 2/5"
+      },
+      "expect": {
+        "visible_on_panel": true,
+        "progress_pct_near": 42,
+        "bar_visible": true
+      }
+    },
+    {
+      "id": "fx-blocked",
+      "emit": {
+        "task_id": "ac-blocked",
+        "bot_id": "qa",
+        "title": "docker pull blocked",
+        "state": "blocked",
+        "detail": "waiting for registry"
+      },
+      "expect": {
+        "left_highlight": true,
+        "sort_priority_over_running": true,
+        "detail_nonempty": true,
+        "visually_distinct_from_running": true
+      }
+    },
+    {
+      "id": "fx-api",
+      "expect": {
+        "get_tasks_has_array": true,
+        "fields": ["task_id", "bot_id", "title", "state", "progress", "detail", "updated_at"]
+      }
+    }
+  ]
+}

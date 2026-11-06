@@ -1,0 +1,26 @@
+# Runtime data
+data/
+data/**
+!data/.gitkeep
+
+# Inbox drops (processed or pending)
+inbox/*.json
+!inbox/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Logs / pid
+*.log
+daemon.pid
