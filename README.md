@@ -76,3 +76,8 @@ cd /workspace/grok-bot-progress   # 或你的 clone 路径
 ## 许可
 
 MIT — Copyright (c) 2026 Grok Bot Progress Contributors
+
+## Bot skill
+
+Shared recipe for bots: [skills/stalloscope-progress/SKILL.md](skills/stalloscope-progress/SKILL.md).
+
